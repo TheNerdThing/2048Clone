@@ -13,7 +13,7 @@ public class Tester {
 	 */
 	public static void main(String[] args) {
 		Board b = new Board(4);
-		int [][] board = new int[4][4];
+		Pice [][] board = new Pice[4][4];
 		for( int i = 0; i < board.length; i++) {
 			for(int y = 0; y < board[i].length; y ++) {
 				board[i][y] = 2;

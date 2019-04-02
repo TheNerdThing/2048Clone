@@ -4,28 +4,123 @@
 
 /**
  * @author A692456
- *
+ * @TODO I want to create a Block Object to make merging simpler
  */
 public class Board {
+	
+	private class Pice{
+		private int value;
+		private boolean hasMerged;
+		
+		/**
+		 * if empty is true, will create a blank pice
+		 * @param empty
+		 */
+		public Pice(boolean empty) {
+			value = empty? 0: 2;
+		}
+		
+		/* (non-Javadoc)
+		 * @see java.lang.Object#hashCode()
+		 */
+		@Override
+		public int hashCode() {
+			final int prime = 31;
+			int result = 1;
+			result = prime * result + getOuterType().hashCode();
+			result = prime * result + value;
+			return result;
+		}
 
-	private int[][] state; 
+		/**
+		 * checks if this is a blank space
+		 * @return
+		 */
+		public boolean isEmpty() {
+			return value ==0;
+		}
+		/* (non-Javadoc)
+		 * @see java.lang.Object#equals(java.lang.Object)
+		 */
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj)
+				return true;
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+			Pice other = (Pice) obj;
+			if (!getOuterType().equals(other.getOuterType()))
+				return false;
+			if (value != other.value)
+				return false;
+			return true;
+		}
+
+		/**
+		 * @return the value
+		 */
+		public int getValue() {
+			return value;
+		}
+
+		/**
+		 * @return the hasMerged
+		 */
+		public boolean hasMerged() {
+			return hasMerged;
+		}
+
+		public void delete() {
+			this.value = 0;
+		}
+		public void merge(Pice p) {
+			if(canMerge(p)) {
+				this.value = p.getValue() + this.value;
+				this.hasMerged = true;
+				p.delete();
+			}
+		}
+		public void clearHasMerge() {
+			this.hasMerged = false;
+		}
+		public boolean canMerge(Pice p) {
+			return p.getValue() == this.value;
+				
+		}
+
+		private Board getOuterType() {
+			return Board.this;
+		}
+	}
+	private Pice[][] state; 
 	private enum Direction{
 		UP,
 		DOWN,
 		LEFT,
 		RIGHT
 	};
+	
+	private enum MoveMergResult{
+		Move,
+		Merge,
+		None
+	}
+	
 	public void moveUp() {
 		//move each block up 1
 		for(int x = 0; x < state.length; x++) {
-			for(int y = 0; y <state.length; y++) {
-				//if the tile is empty do nothing
-				// if we merge a tile 
-				if(!isEmpty(x,y) && moveMerg( x, y, Direction.UP)) {
-					
+			for(int y = state.length; y >=0; y--) {
+				MoveMergResult r = moveMerg(x,y, Direction.UP);
+//				System.out.println(r);
+				// if we merge a tile we need to check the tile below
+				if(r == MoveMergResult.Merge) {
+					y = Math.max(state.length, y +1);
 				}
-				
+				//if nothing happened continue on
 			}
+			
 		}
 		
 		step();
@@ -53,7 +148,7 @@ public class Board {
 	 * for debugging 
 	 * @param set
 	 */
-	public void setBoard(int [][] set) {
+	public void setBoard(Pice [][] set) {
 		state= set;
 	}
 	
@@ -64,7 +159,7 @@ public class Board {
 	 * @return
 	 */
 	private boolean isEmpty(int x, int y) {
-		return state[y][x] == 0;
+		return state[y][x].isEmpty();
 	}
 	
 	/**
@@ -74,7 +169,7 @@ public class Board {
 	 * @param y
 	 * @param dir
 	 */
-	public boolean moveMerg(int x, int y, Direction dir) {
+	public MoveMergResult moveMerg(int x, int y, Direction dir) {
 		int xCheck = x;
 		int yCheck = y;
 		switch(dir){
@@ -92,25 +187,27 @@ public class Board {
 				break;
 		}
 		// check if we are trying to move/merge out of bounds 
-		if(yCheck < 0  || xCheck < 0 || yCheck >= state.length || xCheck >= state.length) {
-			return false;
+		if(yCheck < 0  || xCheck < 0 || yCheck >= state.length || xCheck >= state.length ||
+				y < 0  || x < 0 || y >= state.length || x >= state.length) {
+			return MoveMergResult.None;
 		}else { 
 			// check if tiles are the same and are not empty tiles
-			if(state[y][x] == state[yCheck][xCheck] && state[y][x] != 0) {
+			if(state[y][x].equals(state[yCheck][xCheck]) && !state[y][x].isEmpty()) {
 				// merge the tiles and delete the last one 
-				state[yCheck][xCheck] = state[y][x] + state[yCheck][xCheck];
-				state[y][x] = 0;
-				return true;
+				state[yCheck][xCheck].merge(state[y][x]);
+				state[y][x].delete();
+				return MoveMergResult.Merge;
 			}
 			// check if the space is empty
-			if(state[yCheck][xCheck] == 0) {
+			if(state[yCheck][xCheck].isEmpty()) {
+				// Swap the empty tile with the data tile
 				state[yCheck][xCheck] = state[y][x];
-				state[y][x] = 0;
-				return false;
+				state[y][x] = state[yCheck][xCheck];
+				return MoveMergResult.Move;
 			}
 			// last case is that we are trying to move 2 different tiles together
 			// which means we do not do anything 
-			return false;
+			return MoveMergResult.None;
 		}
 	}
 	
@@ -132,18 +229,18 @@ public class Board {
 			// we only need to check if there are (2) 2 blocks next to each other
 			for(int x = 0; x < state.length; x++) {
 				for(int y = 0; y < state[x].length; y++) {
-					if(state[x][y] == 2) {
+					if(state[x][y].value == 2) {
 						// check all adjacent squares next to it
-						if(x + 1 < state.length && state[x + 1][y] == state[x][y]) {
+						if(x + 1 < state.length && state[x + 1][y].equals(state[x][y])) {
 							return false;
 						}
-						if(y + 1 < state.length && state[x][y+1] == state[x][y]) {
+						if(y + 1 < state.length && state[x][y+1].equals( state[x][y])) {
 							return false;
 						}
-						if(x-1 >= 0&& state[x - 1][y] == state[x][y]) {
+						if(x-1 >= 0&& state[x - 1][y].equals(state[x][y])) {
 							return false;
 						}
-						if(y-1 >= 0 && state[x][y-1] == state[x][y]) {
+						if(y-1 >= 0 && state[x][y-1].equals(state[x][y])) {
 							return false;
 						}
 					}
@@ -154,10 +251,10 @@ public class Board {
 	}
 	
 	public Board(int size) {
-		state = new int[size][size];
+		state = new Pice[size][size];
 		for( int x = 0; x < state.length; x++) {
 			for( int y = 0 ; y< state[x].length; y++ ) {
-				state[x][y] = 0;
+				state[x][y] = new Pice(true);
 			}
 		}
 	}
@@ -171,9 +268,9 @@ public class Board {
 			do {
 				int x = (int) (Math.random() * 4);
 				int y = (int)(Math.random() * 4);
-				if(state[x][y] == 0) {
+				if(isEmpty(x,y)) {
 					flag = false;
-					state[x][y] = 2;
+					state[x][y] = new Pice(false);
 				}
 			}while(flag);
 		}
@@ -185,7 +282,7 @@ public class Board {
 	public boolean boardFull() {
 		for( int x = 0; x < state.length; x++) {
 			for( int y = 0 ; y< state[x].length; y++ ) {
-				if(state[x][y] == 0) {
+				if(state[x][y].isEmpty()) {
 					return false;
 				}
 			}
