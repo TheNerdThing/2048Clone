@@ -4,7 +4,8 @@
 
 /**
  * @author A692456
- * @TODO I want to create a Block Object to make merging simpler
+ * @TODO Works for the most part. Just need to make sure to check for merges after we move all Pices
+ * @TODO also need to make sure that the parts are merged in the correct order
  */
 public class Board {
 	
@@ -12,6 +13,10 @@ public class Board {
 		private int value;
 		private boolean hasMerged;
 		
+		public Pice(Pice p) {
+			this.value= p.value;
+			this.hasMerged = p.hasMerged;
+		}
 		/**
 		 * if empty is true, will create a blank pice
 		 * @param empty
@@ -37,7 +42,7 @@ public class Board {
 		 * @return
 		 */
 		public boolean isEmpty() {
-			return value ==0;
+			return value == 0;
 		}
 		/* (non-Javadoc)
 		 * @see java.lang.Object#equals(java.lang.Object)
@@ -73,18 +78,25 @@ public class Board {
 		}
 
 		public void delete() {
+			
 			this.value = 0;
 		}
+		
 		public void merge(Pice p) {
 			if(canMerge(p)) {
-				this.value = p.getValue() + this.value;
+//				System.out.println("merging with " + p.getValue());
+				this.value += p.getValue();
 				this.hasMerged = true;
+//				System.out.println("this.value = " + this.value);
+//				System.out.println("Merge: deleteing a " + this.value);
 				p.delete();
 			}
 		}
+		
 		public void clearHasMerge() {
 			this.hasMerged = false;
 		}
+		
 		public boolean canMerge(Pice p) {
 			return p.getValue() == this.value;
 				
@@ -113,7 +125,6 @@ public class Board {
 		for(int x = 0; x < state.length; x++) {
 			for(int y = state.length; y >=0; y--) {
 				MoveMergResult r = moveMerg(x,y, Direction.UP);
-//				System.out.println(r);
 				// if we merge a tile we need to check the tile below
 				if(r == MoveMergResult.Merge) {
 					y = Math.max(state.length, y +1);
@@ -126,19 +137,57 @@ public class Board {
 		step();
 	}
 	public void moveDown() {
+		//move each block down 1
+				for(int x = 0; x < state.length; x++) {
+					for(int y = 0; y <=state.length; y++) {
+						MoveMergResult r = moveMerg(x,y, Direction.DOWN);
+						// if we merge a tile we need to check the tile below
+						if(r == MoveMergResult.Merge) {
+							y = Math.max(0, y -1);
+						}
+						//if nothing happened continue on
+					}
+					
+				}
 		step();
 	}
 	public void moveLeft() {
+		//move each block up 1
+				for(int x = 0; x < state.length; x++) {
+					for(int y = state.length; y >=0; y--) {
+						MoveMergResult r = moveMerg(x,y, Direction.LEFT);
+						// if we merge a tile we need to check the tile below
+						if(r == MoveMergResult.Merge) {
+							y = Math.max(state.length, y +1);
+						}if(r == MoveMergResult.Move) {
+							// if a Piece moved we need to check if it could merge with the one behind it.  
+						}
+						//if nothing happened continue on
+					}
+					
+				}
 		step();
 	}
 	public void moveRight() {
+		//move each block up 1
+				for(int x = 0; x < state.length; x++) {
+					for(int y = state.length; y >=0; y--) {
+						MoveMergResult r = moveMerg(x,y, Direction.RIGHT);
+						// if we merge a tile we need to check the tile below
+						if(r == MoveMergResult.Merge) {
+							y = Math.max(state.length, y +1);
+						}
+						//if nothing happened continue on
+					}
+					
+				}
 		step();
 	}
 	
 	public void printBoard() {
 		for(int x = 0; x < state.length; x ++) {
 			for(int y = 0; y< state.length; y ++) {
-				System.out.print(state[x][y] + " ");
+				System.out.print(state[x][y].getValue() + " ");
 			}
 			System.out.println();
 		}
@@ -148,8 +197,12 @@ public class Board {
 	 * for debugging 
 	 * @param set
 	 */
-	public void setBoard(Pice [][] set) {
-		state= set;
+	public void setBoard() {
+		for(int x = 0; x < state.length; x ++) {
+			for(int y = 0; y < state.length; y++) {
+				state[x][y] = new Pice(Math.random() > .5 ? false: true);
+			}
+		}
 	}
 	
 	/**
@@ -159,7 +212,7 @@ public class Board {
 	 * @return
 	 */
 	private boolean isEmpty(int x, int y) {
-		return state[y][x].isEmpty();
+		return state[x][y].isEmpty();
 	}
 	
 	/**
@@ -193,16 +246,20 @@ public class Board {
 		}else { 
 			// check if tiles are the same and are not empty tiles
 			if(state[y][x].equals(state[yCheck][xCheck]) && !state[y][x].isEmpty()) {
+				// check if either tile has been merged
+				if(state[y][x].hasMerged() || state[yCheck][xCheck].hasMerged()) {
+					System.out.println("unit has already merged");
+					return MoveMergResult.None;
+				}
 				// merge the tiles and delete the last one 
 				state[yCheck][xCheck].merge(state[y][x]);
-				state[y][x].delete();
 				return MoveMergResult.Merge;
 			}
 			// check if the space is empty
 			if(state[yCheck][xCheck].isEmpty()) {
 				// Swap the empty tile with the data tile
-				state[yCheck][xCheck] = state[y][x];
-				state[y][x] = state[yCheck][xCheck];
+				state[yCheck][xCheck] = new Pice(state[y][x]);
+				state[y][x].delete();
 				return MoveMergResult.Move;
 			}
 			// last case is that we are trying to move 2 different tiles together
@@ -216,6 +273,12 @@ public class Board {
 	 * returns true if there is another move possible 
 	 */
 	private boolean step() {
+		// reset has merged
+		for(int x = 0; x < state.length; x++) {
+			for(int y = 0; y< state.length; y++) {
+				state[x][y].clearHasMerge();
+			}
+		}
 		if(gameOver()) {
 			return false;
 		}else {
@@ -266,8 +329,8 @@ public class Board {
 		if(!boardFull()) {
 			boolean flag = true;
 			do {
-				int x = (int) (Math.random() * 4);
-				int y = (int)(Math.random() * 4);
+				int x = (int) (Math.random() * state.length);
+				int y = (int)(Math.random() * state.length);
 				if(isEmpty(x,y)) {
 					flag = false;
 					state[x][y] = new Pice(false);
